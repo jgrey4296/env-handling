@@ -1,0 +1,37 @@
+#+TITLE: Env Handling Todos
+#+STARTUP: agenda
+
+* Env-Handling
+** [∅] use generic functions
+#+begin_src elisp :results output
+(cl-defgeneric librarian--env-setup (backend xref))
+(cl-defgeneric librarian--env-teardown (backend xref))
+(cl-defgeneric librarian--env-create (backend xref))
+(cl-defgeneric librarian--env-install (backend xref))
+(cl-defgeneric librarian--env-update (backend xref))
+(cl-defgeneric librarian--env-modeline (backend xref))
+#+end_src
+** [∅] use structs
+#+begin_src elisp :results output
+
+(cl-defstruct librarian--env-state
+  "Describes the current environment state.
+  Essentially
+"
+  (locked nil   :type 'bool :documentation "If true, disallows modification")
+  (process-vars :type 'list :documentation "list of vars used to let-bind process-environment")
+  (root         :type 'path :documentation "Where the environment considers the root location")
+  (backgrounnd  :type 'list :documentation "Background processes used for, eg: lsp")
+  )
+
+#+end_src
+** [∅] refactor structure
+env handling can separate into:
+- install env vars
+- remove env vars
+- install mode hooks
+- remove mode hooks
+- modeline add
+- modeline remove
+
+* Links
