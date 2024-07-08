@@ -74,6 +74,7 @@ and call the currently used lsp/conda client entrypoint"
        (message "Activating %s" (car setup))
        (setq final-env (funcall setup-fn env-handling-state local-env))
        )
+      (_ (message "No condition activated"))
       )
     (setf (plist-get env-handling-state :env) (plist-get (or final-env local-env) :name)
           (plist-get env-handling-state :path) (plist-get (or final-env local-env) :path)
