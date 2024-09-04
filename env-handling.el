@@ -1,5 +1,7 @@
-;;; lang/python/autoload/conda.el -*- lexical-binding: t; no-byte-compile: t; -*-
+;;; env-handling.el -*- lexical-binding: t; no-byte-compile: t; -*-
 
+(require 'env-handling--py)
+(require 'cl-lib)
 ;; TODO add registered setup / teardown functions
 
 ;;-- vars
@@ -30,7 +32,7 @@
   "Dispatch to activate appropriate environment
 and call the currently used lsp/conda client entrypoint"
   (interactive)
-  (message "Handling Python Environment")
+  (message "Handling Environment")
   (unless env-handling-state
     (env-handling-state--init))
 
@@ -43,18 +45,17 @@ and call the currently used lsp/conda client entrypoint"
     (unless (plist-get env-handling-state :setup) ;; Select handler
       (setf (plist-get env-handling-state :setup)
             (let* ((vals (env-handling--get-handlers :setup))
-                   (chosen (ivy-read "Python Env Handler: " vals :require-match t))
+                   (chosen (ivy-read "Env Handler: " vals :require-match t))
                   )
               (cons (intern chosen) (alist-get (intern chosen) vals))))
       )
     (unless (plist-get env-handling-state :support)  ;; select support
       (setf (plist-get env-handling-state :support)
             (let* ((vals (env-handling--get-handlers :support))
-                   (chosen (ivy-read "Python Support: " vals :require-match t)))
+                   (chosen (ivy-read "Support: " vals :require-match t)))
               (cons (intern chosen) (alist-get (intern chosen) vals))))
       )
-    (add-to-list 'python-shell-extra-pythonpaths root)
-    (add-to-list 'py-shell-extra-pythonpaths root)
+    (env-handling--update-py-paths root)
 
     (let ((setup (plist-get env-handling-state :setup))
           (locked (plist-get env-handling-state :locked))
@@ -100,7 +101,7 @@ and call the currently used lsp/conda client entrypoint"
 (defun env-handling-clear-env! ()
   (interactive)
   (let ((setup (plist-get env-handling-state :setup)))
-    (message "Clearing python environment")
+    (message "Clearing environment")
     (pcase (car-safe setup)
       ((and (let teardown-fn (caddr setup)) (guard (functionp teardown-fn)))
        (funcall teardown-fn env-handling-state))
@@ -111,7 +112,7 @@ and call the currently used lsp/conda client entrypoint"
     )
 
   (let ((support (plist-get env-handling-state :support)))
-    (message "Clearing python support")
+    (message "Clearing support")
     (pcase (car-safe support)
        ((and (let teardown-fn (caddr support)) (guard (functionp teardown-fn)))
         (funcall teardown-fn env-handling-state))
@@ -122,8 +123,6 @@ and call the currently used lsp/conda client entrypoint"
     )
 
   (setq env-handling-state nil
-        python-shell-extra-pythonpaths nil
-        py-shell-extra-pythonpaths nil
         )
   )
 
@@ -137,7 +136,7 @@ and call the currently used lsp/conda client entrypoint"
 ;;;###autoload
 (defun env-handling-state-line ()
   (if (plist-get env-handling-state :env)
-      (format "Python (%s:%s:%s): %s"
+      (format "Env (%s:%s:%s): %s"
               (car-safe (plist-get env-handling-state :setup))
               (car-safe (plist-get env-handling-state :support))
               (if (eq 'lsp (car-safe (plist-get env-handling-state :support)))
@@ -166,11 +165,7 @@ and call the currently used lsp/conda client entrypoint"
   )
 
 (defun env-handling-auto-kill-suppport-processes-h ()
-  (let* ((no-more-pyfiles (and (eq major-mode 'python-mode)
-                               (not (delq (current-buffer)
-                                          (doom-buffers-in-mode 'python-mode (buffer-list))))))
-
-         (curr     (car-safe (plist-get env-handling-state :support)))
+  (let* ((curr     (car-safe (plist-get env-handling-state :support)))
          (teardown (cadr (alist-get curr (env-handling--get-handlers :teardown))))
          )
     (message "Killing Support Processes")
@@ -186,7 +181,7 @@ and call the currently used lsp/conda client entrypoint"
 (defun env-handling-create-env! ()
   (interactive)
   (let* ((handlers (env-handling--get-handlers :create))
-         (type (ivy-read "Python Env Handler: " handlers :require-match t))
+         (type (ivy-read "Env Handler: " handlers :require-match t))
          (handler (car (alist-get (intern type) handlers)))
         )
     (pcase handler
@@ -201,7 +196,7 @@ and call the currently used lsp/conda client entrypoint"
 (defun env-handling-add-package! ()
   (interactive)
   (let* ((handlers (env-handling--get-handlers :install))
-         (chosen (ivy-read "Python Env Handler: " handlers :require-match t))
+         (chosen (ivy-read "Env Handler: " handlers :require-match t))
          (handler (cadr (alist-get (intern chosen) handlers)))
         )
     (pcase handler
@@ -216,7 +211,7 @@ and call the currently used lsp/conda client entrypoint"
 (defun env-handling-update! ()
   (interactive)
   (let* ((handlers (env-handling--get-handlers :update))
-         (chosen (ivy-read "Python Env Handler: " handlers :require-match t))
+         (chosen (ivy-read "Env Handler: " handlers :require-match t))
          (handler (alist-get (intern chosen) handlers))
         )
     (pcase handler
